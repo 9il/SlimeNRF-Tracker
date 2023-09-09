@@ -128,7 +128,7 @@ bool aux_exists = true;
 bool main_data = false;
 bool aux_data = false;
 
-#define MAG_ENABLED true
+#define MAG_ENABLED false
 
 #define INT16_TO_UINT16(x) ((uint16_t)32768 + (uint16_t)(x))
 #define TO_FIXED_14(x) ((int16_t)((x) * (1 << 14)))
