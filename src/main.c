@@ -193,10 +193,6 @@ bool system_off_aux = false;
 bool reconfig;
 //bool charging = false;
 
-float gyro_buf[333*4];
-int gyro_buf_pos = 0;
-bool gyro_buf_init = false;
-
 #define LAST_RESET_LIMIT 10
 
 // TODO: move to sensor
@@ -698,44 +694,12 @@ void main_imu_thread(void) {
         			FusionVector g = {.array = {gx, -gz, gy}};
         			FusionVector a = {.array = {ax, -az, ay}};
         			g = FusionOffsetUpdate(&offset, g);
-
-					gyro_buf[gyro_buf_pos*4+0] = gx;
-					gyro_buf[gyro_buf_pos*4+1] = -gz;
-					gyro_buf[gyro_buf_pos*4+2] = gy;
-					FusionQuaternion Q = FusionAhrsGetQuaternion(&ahrs);
-					gyro_buf[gyro_buf_pos*4+3] = atan2f(Q.element.w * Q.element.z + Q.element.x * Q.element.y, 0.5f - Q.element.y * Q.element.y - Q.element.z * Q.element.z);
-					gyro_buf_pos++;
-					if (gyro_buf_pos == 333)
-						gyro_buf_init = true;
-					gyro_buf_pos %= 333;
-
 #if MAG_ENABLED
         			FusionVector m = {.array = {my, mz, -mx}};
         			FusionAhrsUpdate(&ahrs, g, a, m, INTEGRATION_TIME);
 #else
         			FusionAhrsUpdate(&ahrs, g, a, z, INTEGRATION_TIME);
 #endif
-				}
-				if (gyro_buf_init==true) {
-					float sum[3] = {0,0,0};
-					bool idle = true;
-					for (int i = 0; i < 333; i++) {
-						if (fabs(gyro_buf[i*4]) < 3.0 && fabs(gyro_buf[i*4+1]) < 3.0 && fabs(gyro_buf[i*4+2]) < 3.0) {
-							sum[0] + gyro_buf[i*4];
-							sum[1] + gyro_buf[i*4+1];
-							sum[2] + gyro_buf[i*4+2];
-						} else {
-							idle = false;
-							break;
-						}
-					}
-					if (idle==true) LOG_INF("Gyro timeout, check to reset.");
-					if (idle && sum[0]*INTEGRATION_TIME < 15.0 && sum[1]*INTEGRATION_TIME < 15.0 && sum[2]*INTEGRATION_TIME < 15.0) {
-						LOG_INF("Current: %f Reset to: %f", FusionRadiansToDegrees(gyro_buf[gyro_buf_pos*4+3]), FusionRadiansToDegrees(gyro_buf[(((gyro_buf_pos + 1) % 333)*4+3)]));
-						FusionAhrsSetHeading(&ahrs, FusionRadiansToDegrees(gyro_buf[(((gyro_buf_pos + 1) % 333)*4+3)])); // this is very scuffed because heading/yaw is Y axis but this tracker is in 3 dimensions
-						gyro_buf_pos = 0;
-						gyro_buf_init = false;
-					}
 				}
         		const FusionVector earth = FusionAhrsGetEarthAcceleration(&ahrs);
 				lin_ax = earth.array[0];
